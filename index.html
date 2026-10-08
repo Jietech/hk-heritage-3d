@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文物保育 3D 掃描 | 古蹟修復數碼記錄 — 3D Scanner HK</title>
+<meta name="description" content="香港 3D 掃描服務 — 古蹟、歷史建築、文物修復的數碼記錄、狀況存檔、修復前後對比、BIM/數碼孿生。Artec 3D 授權代理。">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root{
+    --bg:#0b0f14;--panel:rgba(14,19,27,.94);--line:#243040;--accent:#37c2ff;
+    --pink:#ff5d8f;--gold:#ffcb57;--green:#4ade80;--txt:#e7eef7;--dim:#8fa3b8;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
+    font-family:-apple-system,"Segoe UI",Roboto,"Noto Sans TC","Microsoft JhengHei",sans-serif}
+  #map{position:absolute;inset:0}
+  .topbar{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:14px;
+    padding:12px 18px;background:linear-gradient(180deg,rgba(6,10,15,.95),rgba(6,10,15,0));pointer-events:none}
+  .logo{font-weight:800;font-size:16px}.logo span{color:var(--accent)}
+  .tag{font-size:12px;color:var(--dim)}.spacer{flex:1}
+  .badge{pointer-events:auto;font-size:11px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;
+    background:rgba(10,15,22,.7);color:var(--dim)}
+  .panel{position:absolute;z-index:20;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;backdrop-filter:blur(10px);box-shadow:0 12px 40px rgba(0,0,0,.55)}
+  #left{top:64px;left:16px;width:360px;max-height:calc(100% - 96px);overflow:auto;padding:16px}
+  #right{bottom:16px;right:16px;width:340px;padding:14px 16px}
+  h1{font-size:17px;margin:0 0 4px}h2{font-size:12px;margin:16px 0 8px;color:var(--accent);
+    text-transform:uppercase;letter-spacing:.08em}
+  p{font-size:12.5px;line-height:1.6;color:#c9d6e5;margin:6px 0}
+  .row{display:flex;gap:8px;align-items:center;margin:7px 0;font-size:12.5px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}.b{color:var(--dim)}
+  .btn{pointer-events:auto;cursor:pointer;border:1px solid var(--line);background:rgba(20,28,40,.9);
+    color:var(--txt);border-radius:9px;padding:8px 11px;font-size:12px;transition:.15s;text-decoration:none;display:inline-block}
+  .btn:hover{border-color:var(--accent);color:#fff}
+  .btn.on{background:var(--accent);color:#04121c;border-color:var(--accent);font-weight:700}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .cmp{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .cmp .h{padding:7px 10px;font-size:12px;font-weight:700;display:flex;justify-content:space-between}
+  .c1{background:rgba(143,163,184,.12);color:#b9c8d8}.c2{background:rgba(55,194,255,.12);color:#8fdcff}
+  .cmp .body{padding:9px 10px;font-size:12px;color:#c9d6e5;line-height:1.55}
+  .legend{position:absolute;bottom:16px;left:16px;z-index:20;font-size:11.5px;color:var(--dim);
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .k{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .cta{margin-top:10px;display:block;text-align:center;text-decoration:none;padding:10px;border-radius:10px;
+    background:linear-gradient(90deg,var(--accent),#2b8cff);color:#03121d;font-weight:800;font-size:12.5px}
+  .mini{font-size:11px;color:var(--dim);margin-top:8px}
+  .pill{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--dim);margin:2px 4px 2px 0}
+  .hl{color:var(--gold)}
+  .scan{width:14px;height:14px;border-radius:50%;background:var(--pink);border:2px solid #fff;
+    box-shadow:0 0 0 0 rgba(255,93,143,.7);animation:pulse 2s infinite}
+  @keyframes pulse{to{box-shadow:0 0 0 18px rgba(255,93,143,0)}}
+  .scanwrap{position:absolute;z-index:15;transform:translate(-50%,-50%);cursor:pointer}
+  .scanlbl{position:absolute;left:20px;top:-8px;white-space:nowrap;font-size:11px;background:rgba(11,15,20,.85);
+    border:1px solid #3a2430;color:#ff9fba;padding:3px 8px;border-radius:8px}
+  #loader{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;background:var(--bg);transition:opacity .5s}
+  .spin{width:36px;height:36px;border:3px solid #1d2937;border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .step{counter-increment:st;position:relative;padding-left:30px;margin:9px 0;font-size:12.5px;color:#c9d6e5;line-height:1.55}
+  .step::before{content:counter(st);position:absolute;left:0;top:-1px;width:20px;height:20px;border-radius:50%;
+    background:rgba(55,194,255,.15);color:var(--accent);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .steps{counter-reset:st}
+  @media(max-width:860px){#left{width:calc(100% - 32px);max-height:54%}#right{display:none}.legend{display:none}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="loader"><div class="spin"></div><div style="font-size:13px;color:#8fa3b8">載入香港 3D 地圖…</div></div>
+
+<div class="topbar">
+  <div class="logo">3D Scanner <span>HK</span> × 文物保育數碼記錄</div>
+  <div class="tag">Heritage 3D Documentation</div>
+  <div class="spacer"></div>
+  <div class="badge">古蹟 · 歷史建築 · 文物 ｜ Artec 3D 授權代理</div>
+</div>
+
+<div class="panel" id="left">
+  <h1>保育／修復前，先記錄現狀</h1>
+  <p class="b">我哋為古蹟、歷史建築、廟宇、雕塑同文物做 <b class="hl">mm 級 3D 掃描</b>，將「修復前嘅現狀」完整數碼化保存。</p>
+
+  <h2>點解修復工程需要 3D 掃描</h2>
+  <div class="steps">
+    <div class="step"><b>非接觸 · 零風險</b> — 唔碰文物本身，全站上門掃描，脆弱構件都安全。</div>
+    <div class="step"><b>修復前後對比</b> — 精確記錄原有狀態，工程前後逐點比對，有據可查。</div>
+    <div class="step"><b>複製損壞構件</b> — 乾淨 mesh 直接輸出 CNC／3D 打印，缺失構件忠實還原。</div>
+    <div class="step"><b>接軌 BIM / 數碼孿生</b> — 輸出可入 BIM、Digital Twin，配合政府標書要求。</div>
+  </div>
+
+  <h2>對比：傳統記錄 vs 我哋</h2>
+  <div class="cmp"><div class="h c1"><span>📷 傳統照片／圖則</span><span>平面</span></div>
+    <div class="body">2D 影像，無法量測。<b>細節、深度、曲面全失</b>。修復後難精確比對。</div></div>
+  <div class="cmp"><div class="h c2"><span>📐 我哋 3D 掃描</span><span>服務</span></div>
+    <div class="body"><b>mm 級精度 · 全彩 3D</b>、可量測、可入 BIM。修復前後逐點比對，複製構件有依據。</div></div>
+
+  <h2>常見應用</h2>
+  <p>🏛 法定古蹟 · 評級歷史建築 ｜ ⛩ 廟宇 · 祠堂 · 圍村 ｜ 🗿 雕塑 · 石刻 · 文物器物<br>
+     🏗 活化項目 ｜ 🧱 外牆 · 花崗石 · 灰塑 ｜ 📦 博物館藏品記錄</p>
+
+  <h2>地圖：HK 保育項目分佈</h2>
+  <div class="btns">
+    <div class="btn on" data-loc="hk">全港</div>
+    <div class="btn" data-loc="cbd">中環 · 古蹟群</div>
+    <div class="btn" data-loc="tst">尖沙咀 · 活化</div>
+    <div class="btn" data-loc="nt">新界 · 圍村</div>
+  </div>
+  <div class="btns">
+    <button class="btn on" id="btnB">3D 建築</button>
+    <button class="btn on" id="btnScan">掃描據點</button>
+    <button class="btn" id="btnSpin">旋轉</button>
+  </div>
+  <div class="mini">※ 底圖用 OpenStreetMap 3D 建築演示城市級模型；我哋嘅掃描 = 室內／構件 mm 級細節，填補官方粗模嘅空白。</div>
+</div>
+
+<div class="legend">
+  <div><span class="k" style="background:#4ea1ff"></span>3D 建築（城市級粗模）</div>
+  <div><span class="k" style="background:#ff5d8f"></span>保育掃描示例據點</div>
+  <div><span class="k" style="background:#ffcb57"></span>歷史建築群</div>
+</div>
+
+<div class="panel" id="right">
+  <h1 style="font-size:15px">想試掃一件文物／構件？</h1>
+  <p class="b">3D 掃描服務由 <b class="hl">HK$1,500</b> 起。傳張相即報價，可先做免費示範掃描。</p>
+  <span class="pill">Artec 3D 授權代理</span><span class="pill">非接觸掃描</span><span class="pill">BIM / Digital Twin</span><span class="pill">全港上門</span>
+  <div class="btns">
+    <a class="btn" href="https://wa.me/85294013998?text=%E6%83%B3%E6%9F%A5%E8%A9%A2%E5%8F%A4%E8%B9%9F%2F%E6%96%87%E7%89%A9%203D%20%E6%8E%83%E6%8F%8F" target="_blank" rel="noopener">WhatsApp</a>
+    <a class="btn" href="https://www.3dscanner.com.hk" target="_blank" rel="noopener">官網</a>
+  </div>
+  <a class="cta" href="https://wa.me/85294013998?text=%E6%83%B3%E6%9F%A5%E8%A9%A2%E5%8F%A4%E8%B9%9F%2F%E6%96%87%E7%89%A9%203D%20%E6%8E%83%E6%8F%8F" target="_blank" rel="noopener">立即查詢保育 3D 掃描 →</a>
+  <div class="mini">3D Scanner &amp; AVGPC · sales@3dscanner.com.hk</div>
+</div>
+
+<script>
+const LOCS={
+  hk:{c:[114.1595,22.3193],z:11.3,p:50,b:0},
+  cbd:{c:[114.1589,22.2820],z:16,p:62,b:300},
+  tst:{c:[114.1722,22.2976],z:16,p:62,b:280},
+  nt:{c:[114.1600,22.4400],z:12,p:55,b:340}
+};
+const SITES=[
+  {c:[114.1589,22.2812],n:'中環 · 歷史建築群',s:1},
+  {c:[114.1360,22.2760],n:'上環 · 舊區唐樓',s:0},
+  {c:[114.1722,22.2976],n:'尖沙咀 · 活化古蹟',s:1},
+  {c:[114.1694,22.3040],n:'九龍 · 廟宇',s:0},
+  {c:[114.1600,22.4430],n:'新界 · 圍村祠堂',s:1},
+  {c:[114.1050,22.4300],n:'錦田 · 法定古蹟',s:1},
+  {c:[114.2260,22.3120],n:'觀塘 · 工廈活化',s:0},
+  {c:[114.1912,22.3822],n:'沙田 · 歷史建築',s:0}
+];
+
+const style={
+  version:8,
+  sources:{
+    ofm:{type:'vector',url:'https://tiles.openfreemap.org/planet',
+      attribution:'© OpenMapTiles © OpenStreetMap contributors'}
+  },
+  glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  layers:[
+    {id:'bg',type:'background',paint:{'background-color':'#0d1420'}},
+    {id:'water',type:'fill',source:'ofm','source-layer':'water',
+      paint:{'fill-color':'#0a1a2b'}},
+    {id:'landcover',type:'fill',source:'ofm','source-layer':'landcover',
+      paint:{'fill-color':'#101d18','fill-opacity':.5}},
+    {id:'park',type:'fill',source:'ofm','source-layer':'park',
+      paint:{'fill-color':'#12241c','fill-opacity':.6}},
+    {id:'building-3d',type:'fill-extrusion',source:'ofm','source-layer':'building',
+      minzoom:13,
+      paint:{
+        'fill-extrusion-color':['interpolate',['linear'],['get','render_height'],
+          0,'#2a4d6e',60,'#3d6f9e',150,'#5b9fd4',320,'#8fc6f2'],
+        'fill-extrusion-height':['coalesce',['get','render_height'],['get','height'],8],
+        'fill-extrusion-base':['coalesce',['get','render_min_height'],['get','min_height'],0],
+        'fill-extrusion-opacity':0.9,
+        'fill-extrusion-vertical-gradient':true
+      }},
+    {id:'road',type:'line',source:'ofm','source-layer':'transportation',
+      filter:['in',['get','class'],['literal',['motorway','trunk','primary','secondary']]],
+      paint:{'line-color':'#25405c','line-width':['interpolate',['linear'],['zoom'],12,1,16,4]}},
+    {id:'road-minor',type:'line',source:'ofm','source-layer':'transportation',
+      filter:['in',['get','class'],['literal',['tertiary','minor','service']]],
+      paint:{'line-color':'#1a2c40','line-width':['interpolate',['linear'],['zoom'],13,.5,16,2]}}
+  ]
+};
+
+let map, scanMarkers=[], spinning=false;
+window.addEventListener('load',()=>{
+  const webglOK=(()=>{try{const c=document.createElement('canvas');return !!(c.getContext('webgl2')||c.getContext('webgl'))}catch(e){return false}})();
+  if(!webglOK){
+    document.getElementById('loader').innerHTML='<div style="max-width:440px;text-align:center;font-size:13px;line-height:1.7;color:#ff9fba">此裝置未支援 WebGL 3D 渲染<br><span style="color:#8fa3b8">請用 Chrome / Edge / Safari 開啟此頁</span></div>';
+    return;
+  }
+  map=new maplibregl.Map({container:'map',style,center:LOCS.hk.c,zoom:LOCS.hk.z,
+    pitch:LOCS.hk.p,bearing:0,antialias:true,attributionControl:false});
+  map.on('error',e=>{});
+  addScanSites();
+  bindUI();
+  map.on('load',()=>{ map.flyTo({center:LOCS.cbd.c,zoom:LOCS.cbd.z,pitch:LOCS.cbd.p,bearing:LOCS.cbd.b,duration:1.4}); spinLoop(); });
+  const hide=()=>{const l=document.getElementById('loader');if(l){l.style.opacity=0;setTimeout(()=>l.remove(),600);}};
+  map.on('idle',hide); setTimeout(hide,8000);
+});
+
+function addScanSites(){
+  SITES.forEach(s=>{
+    const el=document.createElement('div');el.className='scanwrap';
+    el.innerHTML='<div class="scan" style="background:'+(s.s?'#ffcb57':'#ff5d8f')+'"></div>';
+    const m=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat(s.c).addTo(map);
+    const lbl=document.createElement('div');lbl.className='scanlbl';lbl.textContent=s.n;
+    if(s.s) lbl.style.color='#ffe6a0', lbl.style.borderColor='#3a3320';
+    const ml=new maplibregl.Marker({element:lbl,anchor:'left'}).setLngLat(s.c).addTo(map);
+    scanMarkers.push(m,ml);
+    el.addEventListener('click',()=>map.flyTo({center:s.c,zoom:17.5,pitch:62,bearing:-20}));
+  });
+}
+function spinLoop(){
+  function tick(){ if(spinning){ map.rotateTo((map.getBearing()+0.18)%360,{duration:0}); } requestAnimationFrame(tick); }
+  requestAnimationFrame(tick);
+}
+function bindUI(){
+  document.querySelectorAll('[data-loc]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('[data-loc]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    const L=LOCS[b.dataset.loc];
+    map.flyTo({center:L.c,zoom:L.z,pitch:L.p,bearing:L.b||0,duration:1.6});
+  }));
+  document.getElementById('btnB').onclick=e=>{
+    const on=e.target.classList.toggle('on');
+    map.setLayoutProperty('building-3d','visibility',on?'visible':'none');
+  };
+  document.getElementById('btnScan').onclick=e=>{
+    const on=e.target.classList.toggle('on');
+    scanMarkers.forEach(m=>{m.getElement().style.display=on?'':'none'});
+  };
+  document.getElementById('btnSpin').onclick=e=>{ spinning=e.target.classList.toggle('on'); };
+}
+</script>
+</body>
+</html>
